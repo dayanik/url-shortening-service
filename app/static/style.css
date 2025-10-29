@@ -1,0 +1,101 @@
+/* Общий стиль страницы */
+body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #f5f7fa;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+/* Контейнер */
+.container {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 1.5rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+}
+
+/* Заголовок */
+h1 {
+    font-size: 1.6rem;
+    margin-bottom: 1.5rem;
+    color: #222;
+}
+
+/* Группы полей */
+.input-group {
+    margin-bottom: 1.2rem;
+    text-align: left;
+}
+
+label {
+    font-weight: 600;
+    display: block;
+    margin-bottom: 0.4rem;
+    color: #444;
+}
+
+/* Поля ввода */
+input[type="url"] {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    border: 1.5px solid #ccc;
+    border-radius: 0.6rem;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+}
+
+input[type="url"]:focus {
+    border-color: #4a90e2;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+}
+
+/* Кнопки */
+.btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.6rem;
+    margin-top: 1rem;
+}
+
+.btn {
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    border: none;
+    border-radius: 0.6rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn.primary {
+    background-color: #4a90e2;
+    color: white;
+}
+
+.btn.secondary {
+    background-color: #888;
+    color: white;
+}
+
+.btn.danger {
+    background-color: #e24a4a;
+    color: white;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    opacity: 0.9;
+}
+
+.btn:active {
+    transform: translateY(0);
+    opacity: 1;
+}
