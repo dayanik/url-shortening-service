@@ -2,7 +2,7 @@ import os
 
 from contextlib import contextmanager
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from .models import Base

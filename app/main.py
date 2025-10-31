@@ -1,17 +1,17 @@
 import string
 import random
 
-from datetime import datetime
-from fastapi import FastAPI, Request, status
+
+from fastapi import FastAPI, Request,Response, status
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, HttpUrl
 from sqlalchemy.exc import IntegrityError
 
 from .models import ShortUrl
-from .settings import get_session
+from .settings import get_session, select
 
 
 class Item(BaseModel):
@@ -29,9 +29,25 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 
-@app.get('/shorten', response_class=HTMLResponse)
-async def index(request: Request):
-    return templates.TemplateResponse(request=request, name="index.html")
+# Получаем домашнюю страницу
+@app.get('/shorten')
+async def create_short_string(request: Request):
+    if request.method == "GET":
+        return templates.TemplateResponse(request=request, name="index.html")
+
+
+# Создание короткой ссылки
+@app.post('/shorten')
+async def create_short_string(request: Request, item: Item | None = None):
+    # сохраняем если только уникальный short_string
+    short_string = generate_short_string()
+    context = await store_to_db(short_string, str(item.url))
+    while not context:
+        short_string = generate_short_string()
+        context = await store_to_db(short_string, str(item.url))
+
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED, content=context)
 
 
 @app.exception_handler(RequestValidationError)
@@ -60,43 +76,89 @@ async def store_to_db(short_url: str, long_url: str):
 
             # Отсоединяем объект от сессии, чтобы можно было использовать после закрытия
             session.expunge(new_short_url)
-
-            return new_short_url
+            context = {
+                'id': new_short_url.id,
+                'url': new_short_url.url,
+                'shortCode': new_short_url.short_code,
+                'createdAt': new_short_url.created_at.isoformat() + 'Z',
+                'updatedAt': new_short_url.updated_at.isoformat() + 'Z',
+            }
+            return context
     except IntegrityError:
         return False
     except Exception as err:
         raise ConnectionError
 
 
-@app.post('/shorten')
-async def create_short_string(item: Item):
-    # сохраняем если только уникальный short_string
-    short_string = generate_short_string()
-    new_short_url = await store_to_db(short_string, str(item.url))
-    while not new_short_url:
-        short_string = generate_short_string()
-        new_short_url = await store_to_db(short_string, str(item.url))
-
-    context = {
-        'id': new_short_url.id,
-        'url': new_short_url.url,
-        'shortCode': new_short_url.short_code,
-        'createdAt': new_short_url.created_at.isoformat() + 'Z',
-        'updatedAt': new_short_url.updated_at.isoformat() + 'Z',
-    }
-
-    return JSONResponse(
-        status_code=status.HTTP_201_CREATED, content=context)
-
-
+# Получение оригинальной ссылки
 @app.get('/shorten/{short_url}')
-async def get_origin_url(short_url: str):
+async def get_origin_url(short_url: str, request: Request):
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        return templates.TemplateResponse(
+            request=request, name="retrieve.html")
     try:
         with get_session() as session:
-            short_url_entity = session.get(ShortUrl, short_code=short_url)
-            print(short_url_entity)
+            short_url_entity = session.scalar(
+                select(ShortUrl).where(ShortUrl.short_code==short_url))
+            context = {
+                'id': short_url_entity.id,
+                'url': short_url_entity.url,
+                'shortCode': short_url_entity.short_code,
+                'createdAt': short_url_entity.created_at.isoformat() + 'Z',
+                'updatedAt': short_url_entity.updated_at.isoformat() + 'Z',
+            }
+    except AttributeError:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content='Short url not found')
+    except Exception as err:
+        print(type(err))
+        raise ConnectionError
+
+    return JSONResponse(status_code=status.HTTP_200_OK, content=context)
+
+
+# Изменение оригинальной ссылки
+@app.put('/shorten/{short_url}')
+async def update_origin_url(short_url: str, item: Item):
+    try:
+        with get_session() as session:
+            short_url_entity = session.scalar(
+                select(ShortUrl).where(ShortUrl.short_code==short_url))
+            short_url_entity.url = str(item.url)
+            session.add(short_url_entity)
+            context = {
+                'id': short_url_entity.id,
+                'url': short_url_entity.url,
+                'shortCode': short_url_entity.short_code,
+                'createdAt': short_url_entity.created_at.isoformat() + 'Z',
+                'updatedAt': short_url_entity.updated_at.isoformat() + 'Z',
+            }
+    except AttributeError:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content='Short url not found')
     except Exception as err:
         raise ConnectionError
-    
 
-    return JSONResponse(status_code=status.HTTP_200_OK, content={})
+    return JSONResponse(
+        status_code=status.HTTP_200_OK, content=context)
+
+
+# Удаление короткой ссылки
+@app.delete('/shorten/{short_url}')
+async def delete_short_url(short_url: str):
+    try:
+        with get_session() as session:
+            short_url_entity = session.scalar(
+                select(ShortUrl).where(ShortUrl.short_code==short_url))
+            session.delete(short_url_entity)
+    except AttributeError:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content='Short url not found')
+    except Exception as err:
+        raise ConnectionError
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

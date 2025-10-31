@@ -16,17 +16,16 @@
 
         <div class="input-group">
             <label for="long_url">Длинная ссылка:</label>
-            <input type="url" name="long_url" value="http://127.0.0.1:8000/some-long-url" id="long_url" placeholder="https://example.com/very/long/url">
+            <input type="url" name="long_url" id="long_url" placeholder="https://example.com/very/long/url">
         </div>
 
         <div class="input-group">
             <label for="short_url">Короткая ссылка:</label>
-            <input type="url" name="short_url" id="short_url" placeholder="short.ly/abc123">
+            <input type="url" name="short_url" value="http://127.0.0.1:8000/shorten/" id="short_url" placeholder="short.ly/abc123">
         </div>
 
         <div class="btn-group">
             <button onclick="postUrl()" id="post_btn" type="button" class="btn primary">POST</button>
-            <button onclick="getUrl()" id="get_btn" type="button" class="btn">GET</button>
             <button onclick="putUrl()" id="put_btn" type="button" class="btn">PUT</button>
             <button onclick="delUrl()" id="del_btn" type="button" class="btn danger">DELETE</button>
             <button onclick="getUrlStats()" id="stat_btn" type="button" class="btn secondary">STATS</button>
