@@ -2,11 +2,15 @@ import os
 
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from fastapi.templating import Jinja2Templates
 
 from .models import Base
+
+
+# Настраиваем шаблонизатор Jinja2
+templates = Jinja2Templates(directory="app/templates")
 
 
 load_dotenv()

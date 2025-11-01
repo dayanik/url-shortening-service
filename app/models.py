@@ -6,7 +6,7 @@ from sqlalchemy.orm import declarative_base
 Base = declarative_base()
 
 
-class ShortUrl(Base):
+class ShortUrlModel(Base):
     __tablename__ = "short_url"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -17,3 +17,13 @@ class ShortUrl(Base):
         DateTime, default=datetime.now,
         onupdate=datetime.now, nullable=False)
     access_count = Column(Integer, nullable=False, default=0)
+
+    def to_dict(self, access_count: bool = False) -> dict:
+        return {
+            'id': self.id,
+            'url': self.url,
+            'shortCode': self.short_code,
+            'createdAt': self.created_at.isoformat() + 'Z',
+            'updatedAt': self.updated_at.isoformat() + 'Z',
+            'accessCount': self.access_count
+        }
