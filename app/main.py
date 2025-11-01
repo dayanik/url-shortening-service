@@ -2,7 +2,7 @@ import string
 import random
 
 
-from fastapi import FastAPI, Request,Response, status
+from fastapi import FastAPI, Request, Response, status, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -14,11 +14,10 @@ from .models import ShortUrl
 from .settings import get_session, select
 
 
-class Item(BaseModel):
+class LongUrl(BaseModel):
+    """Long url validation model"""
     url: HttpUrl
 
-
-fake_db = {}
 
 app = FastAPI()
 
@@ -32,13 +31,12 @@ templates = Jinja2Templates(directory="app/templates")
 # Получаем домашнюю страницу
 @app.get('/shorten')
 async def create_short_string(request: Request):
-    if request.method == "GET":
-        return templates.TemplateResponse(request=request, name="index.html")
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
 # Создание короткой ссылки
 @app.post('/shorten')
-async def create_short_string(request: Request, item: Item | None = None):
+async def create_short_string(request: Request, item: LongUrl | None = None):
     # сохраняем если только уникальный short_string
     short_string = generate_short_string()
     context = await store_to_db(short_string, str(item.url))
@@ -63,18 +61,14 @@ def generate_short_string(length: int=6):
     return ''.join(random.choices(characters, k=length))
 
 
-def is_short_url_unique(short_url: str):
-    return short_url in fake_db
-
-
 async def store_to_db(short_url: str, long_url: str):
     try:
-        with get_session() as session:
+        async with get_session() as session:
             new_short_url = ShortUrl(url=long_url, short_code=short_url)
             session.add(new_short_url)
-            session.flush()  # Чтобы получить ID до коммита
+            await session.flush()  # Чтобы получить ID до коммита
             # Отсоединяем объект от сессии, чтобы можно было использовать после закрытия
-            session.expunge(new_short_url)
+            await session.refresh(new_short_url)
             context = {
                 'id': new_short_url.id,
                 'url': new_short_url.url,
@@ -92,19 +86,26 @@ async def store_to_db(short_url: str, long_url: str):
 
 # Получение оригинальной ссылки
 @app.get('/shorten/{short_url}')
-async def get_origin_url(short_url: str, request: Request):
+async def get_origin_url(
+    short_url: str,
+    request: Request):
+    
+    # if client is browser
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
         return templates.TemplateResponse(
             request=request, name="retrieve.html")
     try:
-        with get_session() as session:
-            short_url_entity = session.scalar(
-                select(ShortUrl).where(ShortUrl.short_code==short_url))
+        async with get_session() as session:
+            result = await session.execute(
+            select(ShortUrl).where(ShortUrl.short_code==short_url))
+            short_url_entity = result.scalar_one_or_none()
             if short_url_entity is None:
-                raise NotFoundError
+                raise HTTPException(status_code=404, detail="short url not found")
+
+            # инкерментирование счетчика запросов короткой ссылки
             short_url_entity.access_count += 1
-            session.add(short_url_entity)
+        
             context = {
                 'id': short_url_entity.id,
                 'url': short_url_entity.url,
@@ -112,7 +113,8 @@ async def get_origin_url(short_url: str, request: Request):
                 'createdAt': short_url_entity.created_at.isoformat() + 'Z',
                 'updatedAt': short_url_entity.updated_at.isoformat() + 'Z',
             }
-    except NotFoundError:
+            return JSONResponse(status_code=status.HTTP_200_OK, content=context)
+    except HTTPException:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
             content='Short url not found')
@@ -120,20 +122,18 @@ async def get_origin_url(short_url: str, request: Request):
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content='Connection error with database')
 
-    return JSONResponse(status_code=status.HTTP_200_OK, content=context)
-
 
 # Изменение оригинальной ссылки
 @app.put('/shorten/{short_url}')
-async def update_origin_url(short_url: str, item: Item):
+async def update_origin_url(short_url: str, item: LongUrl):
     try:
-        with get_session() as session:
-            short_url_entity = session.scalar(
+        async with get_session() as session:
+            result = await session.execute(
                 select(ShortUrl).where(ShortUrl.short_code==short_url))
+            short_url_entity = result.scalar_one_or_none()
             if short_url_entity is None:
-                raise NotFoundError
+                raise HTTPException(status_code=404, detail="short url not found")
             short_url_entity.url = str(item.url)
-            session.add(short_url_entity)
             context = {
                 'id': short_url_entity.id,
                 'url': short_url_entity.url,
@@ -141,7 +141,7 @@ async def update_origin_url(short_url: str, item: Item):
                 'createdAt': short_url_entity.created_at.isoformat() + 'Z',
                 'updatedAt': short_url_entity.updated_at.isoformat() + 'Z',
             }
-    except NotFoundError:
+    except HTTPException:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
             content='Short url not found')
@@ -153,40 +153,36 @@ async def update_origin_url(short_url: str, item: Item):
         status_code=status.HTTP_200_OK, content=context)
 
 
-class NotFoundError(Exception):
-    pass
-
-
 # Удаление короткой ссылки
 @app.delete('/shorten/{short_url}')
 async def delete_short_url(short_url: str):
     try:
-        with get_session() as session:
-            short_url_entity = session.scalar(
+        async with get_session() as session:
+            result = await session.execute(
                 select(ShortUrl).where(ShortUrl.short_code==short_url))
+            short_url_entity = result.scalar_one_or_none()
             if short_url_entity is None:
-                raise NotFoundError
-            session.delete(short_url_entity)
-    except NotFoundError:
+                raise HTTPException(status_code=404, detail="short url not found")
+            await session.delete(short_url_entity)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    except HTTPException:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
             content='Short url not found')
     except Exception as err:
-        print(type(err))
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content='Connection error with database')
-
-    return JSONResponse(status_code=status.HTTP_204_NO_CONTENT, content='')
 
 
 @app.get('/shorten/{short_url}/stats')
 async def get_stats(short_url: str):
     try:
-        with get_session() as session:
-            short_url_entity = session.scalar(
+        async with get_session() as session:
+            result = await session.execute(
                 select(ShortUrl).where(ShortUrl.short_code==short_url))
+            short_url_entity = result.scalar_one_or_none()
             if short_url_entity is None:
-                raise NotFoundError
+                raise HTTPException(status_code=404, detail="short url not found")
             context = {
                 'id': short_url_entity.id,
                 'url': short_url_entity.url,
@@ -197,7 +193,7 @@ async def get_stats(short_url: str):
             }
             return JSONResponse(
                 status_code=status.HTTP_200_OK, content=context)
-    except NotFoundError:
+    except HTTPException:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
             content='Short url not found')

@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "asyncpg>=0.30.0",
     "fastapi[standard]>=0.120.2",
     "psycopg2-binary>=2.9.11",
     "sqlalchemy>=2.0.44",

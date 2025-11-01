@@ -39,6 +39,43 @@ function postUrl() {
 
 }
 
+function getUrl() {
+    var shortUrl = shortUrlInput.value;
+
+    fetch(shortUrl).then(
+        async (response) => {
+            if (response.status === 200) {
+                const data = await response.json();
+                if (data?.url) {
+                    window.location.assign(data.url);
+                }
+            } else if (response.status === 404) {
+                const error = await response.json();
+                infoBlockP.textContent = 'Ошибка 404: Данная короткая ссылка не найдена.';
+                infoBlockP.style.color = 'red';
+                console.error("Ошибка 404:", error);
+            } else {
+                console.error("Неожиданный ответ:", response.status);
+                const data = await response.json()
+                infoBlockP.textContent = "Неожиданный ответ: " + data;
+                infoBlockP.style.color = 'red';
+            }
+        }
+    ).catch((error) => {
+        console.error("Ошибка сети:", error);
+        infoBlockP.textContent = "Ошибка сети.";
+        infoBlockP.style.color = 'red';
+    });
+}
+
+function getUrlWithTimeout() {
+    infoBlockP.textContent = "Please, wait a second. We will redirect you to origin link.";
+    // Запускаем таймер
+    setTimeout(() => {
+        getUrl();
+    }, 2000);
+}
+
 function putUrl() {
     var longUrl = longUrlInput.value;
     var shortUrl = shortUrlInput.value;
@@ -110,9 +147,9 @@ function delUrl() {
 }
 
 function getUrlStats() {
-    var shortgUrl = shortUrlInput.value;
+    var shortUrl = shortUrlInput.value;
 
-    fetch(`${shortgUrl}/stats`).then(
+    fetch(`${shortUrl}/stats`).then(
         async (response) => {
             if (response.status === 200) {
                 const data = await response.json();

@@ -21,11 +21,12 @@
 
         <div class="input-group">
             <label for="short_url">Короткая ссылка:</label>
-            <input type="url" name="short_url" value="http://127.0.0.1:8000/shorten/" id="short_url" placeholder="short.ly/abc123">
+            <input type="url" name="short_url" id="short_url" placeholder="http://127.0.0.1:8000/abc123">
         </div>
 
         <div class="btn-group">
             <button onclick="postUrl()" id="post_btn" type="button" class="btn primary">POST</button>
+            <button onclick="getUrlWithTimeout()" id="get_btn" type="button" class="btn primary">GET</button>
             <button onclick="putUrl()" id="put_btn" type="button" class="btn">PUT</button>
             <button onclick="delUrl()" id="del_btn" type="button" class="btn danger">DELETE</button>
             <button onclick="getUrlStats()" id="stat_btn" type="button" class="btn secondary">STATS</button>

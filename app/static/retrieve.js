@@ -1,9 +1,9 @@
 const infoBlockP = document.getElementById('info_p');
 
 function getUrl() {
-    var shortgUrl = document.URL;
+    var shortUrl = document.URL;
 
-    fetch(shortgUrl).then(
+    fetch(shortUrl).then(
         async (response) => {
             if (response.status === 200) {
                 const data = await response.json();
@@ -29,7 +29,11 @@ function getUrl() {
     });
 }
 
-// Запускаем таймер
-setTimeout(() => {
-    getUrl();
-}, 1000);
+function getUrlWithTimeout(timeout) {
+    // Запускаем таймер
+    setTimeout(() => {
+        getUrl();
+    }, timeout);
+}
+
+getUrlWithTimeout(2000);

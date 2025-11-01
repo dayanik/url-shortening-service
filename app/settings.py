@@ -1,8 +1,9 @@
 import os
 
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, select
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from .models import Base
@@ -19,20 +20,21 @@ DB_NAME = os.getenv('DB_NAME')
 DATABASE_URL = f'{DB_DRIVER}://{DB_USER_NAME}:{DB_PASSWORD}'\
     f'@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 
-engine = create_engine(DATABASE_URL)
+engine = create_async_engine(DATABASE_URL, echo=False, future=True)
 
-SessionLocal = sessionmaker(bind=engine, autoflush=False)
+async_session_local = sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autoflush=False)
 
-Base.metadata.create_all(engine)
 
-@contextmanager
-def get_session():
-    session = SessionLocal()
-    try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+@asynccontextmanager
+async def get_session():
+    async with async_session_local() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
