@@ -1,10 +1,11 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, HttpUrl
 
-from .settings import get_session, templates
+from .settings import get_session, templates, engine, lifespan
 from .utilities import get_short_url_entity, store_to_db, generate_short_string
 
 
@@ -12,10 +13,11 @@ class LongUrl(BaseModel):
     url: HttpUrl
 
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 # Подключаем папку со статикой
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 # общий обработчик исключения валидации длинной ссылки
 @app.exception_handler(RequestValidationError)
